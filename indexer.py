@@ -21,10 +21,28 @@ if __name__ == "__main__":
         action='store',
         required=True,
         type=int,
-        help='memory available'
+        help='memory available in MB'
     )
-    args = parser.parse_args()
-    memory_limit(args.memory_limit)
+
+    parser.add_argument(
+        '-c',
+        dest='corpus_path',
+        action='store',
+        required=True,
+        help='path to the corpus files directory'
+    )
+
+    parser.add_argument(
+        '-i',
+        dest='index_path',
+        action='store',
+        required=True,
+        help='path of the index file to be generated'
+    )
+
+    my_args = parser.parse_args()
+
+    memory_limit(my_args.memory_limit)
     try:
         main()
     except MemoryError:
