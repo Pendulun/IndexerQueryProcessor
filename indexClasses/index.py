@@ -42,18 +42,70 @@ class Index():
         raise AttributeError("index is not writable")
 
     def add(self, token:str, entry:Posting):
-        
         if token not in self._index:
-            self._index[token] = []
+            self._index[token] = Postings()
         
-        self._index[token].append(entry)
+        self._index[token].add(entry)
     
     def has_entry(self, token:str, doc_id:int) -> bool:
         if token not in self._index:
             return False
         
-        for entry in self._index[token]:
-            if entry.doc_id == doc_id:
+        return self._index[token].has_doc(doc_id)
+    
+    def getDeltasOf(self, token:str):
+        return self._index[token].get_deltas()
+
+class Postings():
+
+    def __init__(self):
+        self._last_id_total = 0
+        self._postings = list()
+    
+    @property
+    def last_id_total(self):
+        """
+        The last/max doc id present
+        """
+        return self._last_id_total
+    
+    @last_id_total.setter
+    def last_id_total(self, new_last_id):
+        raise AttributeError("last_id_total is not writable")
+    
+    @property
+    def postings(self):
+        """
+        The postings collections
+        """
+        return self._postings
+    
+    @postings.setter
+    def postings(self, new_postings):
+        raise AttributeError("postings is not writable")
+    
+    def add(self, posting:Posting):
+        
+        delta_id = self._get_delta_for_id(posting.doc_id)
+        self._postings.append((delta_id, posting.frequency))
+
+        self._last_id_total = self._last_id_total + delta_id
+        
+    def _get_delta_for_id(self, doc_id:int) -> int:
+        return doc_id - self._last_id_total
+    
+    def has_doc(self, id:int) -> bool:
+        for entry in self._postings:
+            if entry[0] == id:
                 return True
         
         return False
+    
+    def get_deltas(self):
+        deltas = list()
+        
+        for posting in self._postings:
+            deltas.append(posting[0])
+        
+        return deltas
+    
