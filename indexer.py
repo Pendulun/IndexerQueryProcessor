@@ -22,7 +22,6 @@ def main(my_args):
     for file in corpus_dir.glob('*.warc.gz.kaggle'):
 
         with open(file, 'rb') as stream:
-            
             for record in ArchiveIterator(stream):
                 if record.rec_type == 'response':
                     texto = record.raw_stream.read().decode()
