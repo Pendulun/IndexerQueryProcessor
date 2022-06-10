@@ -1,5 +1,5 @@
 from unittest import TestCase, main
-from index import Index, Posting, InvertedList
+from index import Index, PostingTuple, InvertedList
 
 class TestIndex(TestCase):
 
@@ -10,7 +10,7 @@ class TestIndex(TestCase):
         token = 'test'
         doc_id = 1
         frequency = 7
-        posting = Posting(doc_id, frequency)
+        posting = PostingTuple(doc_id, frequency)
 
         self.index.add(token, posting)
 
@@ -22,7 +22,7 @@ class TestIndex(TestCase):
         frequencies = [7, 4, 9]
 
         for posting_id in range(len(tokens)):
-            posting = Posting(doc_ids[posting_id], frequencies[posting_id])
+            posting = PostingTuple(doc_ids[posting_id], frequencies[posting_id])
 
             self.index.add(tokens[posting_id], posting)
         
@@ -35,21 +35,20 @@ class TestIndex(TestCase):
         doc_id = 1
         frequencies = [1, 2]
 
-        posting = Posting(doc_id, frequencies[0])
+        posting = PostingTuple(doc_id, frequencies[0])
         self.index.add(token, posting)
 
-        posting = Posting(doc_id, frequencies[1])
+        posting = PostingTuple(doc_id, frequencies[1])
         self.index.add(token, posting)
 
-        self.assertTrue(self.index.has_entry(token, doc_id))
-        self.assertListEqual(self.index.getDeltasOf(token), [1, 0])
+        self.assertEqual(self.index.get_freq_of_doc_for_token(doc_id, token), 3)
     
     def test_has_posting_after_checkpoint(self):
         token = 'test1'
         max_doc_id = InvertedList.CHECKPOINTS_EVERY + 2
         for doc_id in range(max_doc_id):
             frequency = doc_id
-            posting = Posting(doc_id, frequency)
+            posting = PostingTuple(doc_id, frequency)
             self.index.add(token, posting)
     
         self.assertTrue(self.index.has_entry(token, max_doc_id-1))
@@ -62,7 +61,7 @@ class TestIndex(TestCase):
         doc_id = 1
         frequency = 3
 
-        posting = Posting(doc_id, frequency)
+        posting = PostingTuple(doc_id, frequency)
         self.index.add(token, posting)
 
         self.assertFalse(self.index.has_entry('test', 2))
@@ -73,7 +72,7 @@ class TestIndex(TestCase):
         frequencies = [3, 5, 7]
 
         for posting_id in range(len(doc_ids)):
-            posting = Posting(doc_ids[posting_id], frequencies[posting_id])
+            posting = PostingTuple(doc_ids[posting_id], frequencies[posting_id])
 
             self.index.add(token, posting)
         
@@ -93,7 +92,7 @@ class TestIndex(TestCase):
 
         for token, posting_info in tokens_postings.items():
             for post_id in range(len(posting_info['doc_ids'])):
-                new_posting = Posting(posting_info['doc_ids'][post_id], posting_info['freq'][post_id])
+                new_posting = PostingTuple(posting_info['doc_ids'][post_id], posting_info['freq'][post_id])
                 self.index.add(token, new_posting)
         
         self.assertListEqual(self.index.getDeltasOf('test1'), [1, 3, 3])
@@ -116,27 +115,27 @@ class TestIndex(TestCase):
 
         for token, posting_info in tokens_postings.items():
             for post_id in range(len(posting_info['doc_ids'])):
-                new_posting = Posting(posting_info['doc_ids'][post_id], posting_info['freq'][post_id])
+                new_posting = PostingTuple(posting_info['doc_ids'][post_id], posting_info['freq'][post_id])
                 self.index.add(token, new_posting)
         
 
-        self.assertEqual(self.index.get_posting('test1', 7), Posting(7, 7))
+        self.assertEqual(self.index.get_posting('test1', 7), PostingTuple(7, 7))
     
     def test_get_posting_with_checkpoint(self):
         token = 'test1'
         max_doc_id = InvertedList.CHECKPOINTS_EVERY + 2
         for doc_id in range(max_doc_id):
             frequency = doc_id
-            posting = Posting(doc_id, frequency)
+            posting = PostingTuple(doc_id, frequency)
             self.index.add(token, posting)
         
         goal_doc = max_doc_id-1
         posting_returned = self.index.get_posting(token, goal_doc)
-        goal_posting = Posting(goal_doc, goal_doc)
+        goal_posting = PostingTuple(goal_doc, goal_doc)
         self.assertEqual(posting_returned, goal_posting)
     
     def test_dont_get_posting(self):
-        posting = Posting(1,1)
+        posting = PostingTuple(1,1)
         self.index.add('test1', posting)
         self.assertEqual(self.index.get_posting('test1', 2), None)
         self.assertEqual(self.index.get_posting('test2', 1), None)

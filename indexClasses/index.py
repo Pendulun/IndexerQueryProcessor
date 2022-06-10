@@ -1,51 +1,7 @@
 from collections import namedtuple
 
-class Posting():
-    
-    def __init__(self, doc_id:int, frequency:int):
-        self._doc_id = doc_id
-        self._frequency = frequency
-    
-    @property
-    def doc_id(self):
-        """
-        The document Id
-        """
-        return self._doc_id
-    
-    @doc_id.setter
-    def doc_id(self, new_doc_id):
-        raise AttributeError("doc_id is not writable")
-    
-    @property
-    def frequency(self):
-        """
-        The token frequency at this doc
-        """
-        return self._frequency
-    
-    @frequency.setter
-    def frequency(self, new_freq):
-        raise AttributeError("frequency is not writable")
-    
-    def __eq__(self, __o: object) -> bool:
-        if not isinstance(__o, Posting):
-            # don't attempt to compare against unrelated types
-            return NotImplemented
+PostingTuple = namedtuple('PostingTuple', 'doc_id frequency')
         
-        equal = self.doc_id == __o.doc_id
-        equal = equal and self.frequency == __o.frequency
-        return equal
-    
-    def __hash__(self) -> int:
-        my_hash = hash(self._doc_id)
-        my_hash += hash(self._frequency)
-        return my_hash
-    
-    def __str__(self) -> str:
-        return "Posting(doc_id="+str(self._doc_id)+", frequency="+str(self._frequency)+")"
-        
-
 class Index():
     def __init__(self):
         self._index = dict()
@@ -61,7 +17,7 @@ class Index():
     def index(self, new_index):
         raise AttributeError("index is not writable")
 
-    def add(self, token:str, entry:Posting):
+    def add(self, token:str, entry:PostingTuple):
 
         self._index.setdefault(token, InvertedList()).add(entry)
     
@@ -82,21 +38,28 @@ class Index():
             return invertedList.get_deltas()
     
     def _get_inverted_list(self, token:str):
-        return self._index.setdefault(token, None)
+        return self._index.get(token, None)
     
-    def get_posting(self, token:str, doc_id:int) -> Posting:
+    def get_posting(self, token:str, doc_id:int) -> PostingTuple:
         if token not in self._index:
             return None
         
-        return self._index[token].get(doc_id)
+        return self._index[token].get_posting(doc_id)
     
     def get_postings_of(self, token:str) -> list:
         return self._index[token].get_all_postings()
+    
+    def get_freq_of_doc_for_token(self, doc_id:int, token:str) -> int:
+        inverted_list = self._get_inverted_list(token)
+
+        if inverted_list == None:
+            return 0
+        else:
+            return inverted_list.get_posting(doc_id).frequency
 
 class InvertedList():
 
     CHECKPOINTS_EVERY = 1000
-    PostingTuple = namedtuple('PostingTuple', 'delta_gap frequency')
 
     def __init__(self):
         self._last_id_total = 0
@@ -148,12 +111,67 @@ class InvertedList():
     def num_postings(self, new_num_postings):
         raise AttributeError("num_postings is not writable")
     
-    def add(self, posting:Posting):
+    class Posting():
+    
+        def __init__(self, delta_gap:int, frequency:int):
+            self._delta_gap = delta_gap
+            self._frequency = frequency
         
-        delta_id = self._get_delta_for_id(posting.doc_id)
+        @property
+        def delta_gap(self):
+            """
+            The document delta gap
+            """
+            return self._delta_gap
+        
+        @delta_gap.setter
+        def delta_gap(self, new_delta_gap):
+            raise AttributeError("delta_gap is not writable")
+        
+        @property
+        def frequency(self):
+            """
+            The token frequency at this doc
+            """
+            return self._frequency
+        
+        @frequency.setter
+        def frequency(self, new_freq):
+            raise AttributeError("frequency is not writable")
+        
+        def add_frequency(self, freq_count):
+            self._frequency += freq_count
+        
+        def __eq__(self, __o: object) -> bool:
+            if not isinstance(__o, InvertedList.Posting):
+                # don't attempt to compare against unrelated types
+                return NotImplemented
+            
+            equal = self.doc_id == __o.doc_id
+            equal = equal and self.frequency == __o.frequency
+            return equal
+        
+        def __hash__(self) -> int:
+            my_hash = hash(self._doc_id)
+            my_hash += hash(self._frequency)
+            return my_hash
+        
+        def __str__(self) -> str:
+            return "Posting(doc_id="+str(self._doc_id)+", frequency="+str(self._frequency)+")"
+    
+    def add(self, new_posting:PostingTuple):
+        
+        existing_posting = self._find(new_posting.doc_id, True)
+        if existing_posting == None:
+            new_posting = self._insert_new_posting(new_posting)
+        else:
+            existing_posting.add_frequency(new_posting.frequency)
 
-        new_posting = InvertedList.PostingTuple(delta_id, posting.frequency)
-        
+    def _insert_new_posting(self, new_posting:PostingTuple):
+        delta_id = self._get_delta_for_id(new_posting.doc_id)
+
+        new_posting = InvertedList.Posting(delta_id, new_posting.frequency)
+            
         self._postings.append(new_posting)
 
         self._last_id_total += delta_id
@@ -161,36 +179,22 @@ class InvertedList():
 
         if self._num_postings % InvertedList.CHECKPOINTS_EVERY == 0:
             self._checkpoints[self._last_id_total] = self._num_postings - 1
-        
+        return new_posting
+           
     def _get_delta_for_id(self, doc_id:int) -> int:
         return doc_id - self._last_id_total
     
-    def has_doc(self, doc_id:int) -> bool:
+    def get_posting(self, doc_id:int) -> PostingTuple:
 
-        acc_doc_id, checkpoint_pos = self._get_checkpoint_for(doc_id)
-        
-        for posting_count, posting in enumerate(self._postings[checkpoint_pos:]):
-            if acc_doc_id == None:
-                acc_doc_id = posting.delta_gap
-            elif posting_count != 0:
-                acc_doc_id += posting.delta_gap
-            
-            if acc_doc_id == doc_id:
-                return True
-        
-        return False
-    
-    def get_deltas(self):
-        deltas = list()
-        
-        for posting in self._postings:
-            deltas.append(posting.delta_gap)
-        
-        return deltas
-    
-    def get(self, doc_id:int) -> Posting:
+        posting = self._find(doc_id, False)
 
-        if self._num_postings == 0:
+        if posting == None:
+            return None
+        else:
+            return PostingTuple(posting.delta_gap, posting.frequency)
+    
+    def _find(self, doc_id:int, delta_gapped:bool) -> Posting:
+        if self.empty():
             return None
         
         acc_doc_id, checkpoint_pos = self._get_checkpoint_for(doc_id)
@@ -202,9 +206,12 @@ class InvertedList():
                 acc_doc_id += posting.delta_gap
 
             if acc_doc_id == doc_id:
-                return Posting(acc_doc_id, posting[1])
+                if delta_gapped:
+                    return posting
+                else:
+                    return InvertedList.Posting(acc_doc_id, posting.frequency)
             elif acc_doc_id > doc_id:
-                return None           
+                return None
 
         return None
     
@@ -222,8 +229,13 @@ class InvertedList():
         return checkpoint_id, checkpoint_pos
     
     def get_all_postings(self) -> list:
-        posting_list = list()
-        for posting in self._postings:
-            posting_list.append(posting)
-        
-        return posting_list
+        return [posting for posting in self._postings]
+    
+    def has_doc(self, doc_id:int) -> bool:
+        return self._find(doc_id, True) != None
+    
+    def get_deltas(self) -> list:
+        return [posting.delta_gap for posting in self._postings]
+    
+    def empty(self):
+        return self._num_postings == 0

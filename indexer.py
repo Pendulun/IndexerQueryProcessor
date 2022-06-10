@@ -3,6 +3,7 @@ import resource
 import argparse
 import pathlib
 from warcio import ArchiveIterator
+from indexClasses.index import *
 
 MEGABYTE = 1024 * 1024
 def memory_limit(value):
@@ -25,6 +26,10 @@ def main(my_args):
             for record in ArchiveIterator(stream):
                 if record.rec_type == 'response':
                     texto = record.raw_stream.read().decode()
+                
+                break
+        
+        break
 
     #Para cada documento, calcular a frequência de palavras e adicionar no index
     #Tudo isso levando em consideração a memória utilizada
