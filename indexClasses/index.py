@@ -1,3 +1,5 @@
+from collections import namedtuple
+
 class Posting():
     
     def __init__(self, doc_id:int, frequency:int):
@@ -94,6 +96,7 @@ class Index():
 class InvertedList():
 
     CHECKPOINTS_EVERY = 1000
+    PostingTuple = namedtuple('PostingTuple', 'delta_gap frequency')
 
     def __init__(self):
         self._last_id_total = 0
@@ -148,7 +151,10 @@ class InvertedList():
     def add(self, posting:Posting):
         
         delta_id = self._get_delta_for_id(posting.doc_id)
-        self._postings.append((delta_id, posting.frequency))
+
+        new_posting = InvertedList.PostingTuple(delta_id, posting.frequency)
+        
+        self._postings.append(new_posting)
 
         self._last_id_total += delta_id
         self._num_postings += 1
@@ -165,9 +171,9 @@ class InvertedList():
         
         for posting_count, posting in enumerate(self._postings[checkpoint_pos:]):
             if acc_doc_id == None:
-                acc_doc_id = posting[0]
+                acc_doc_id = posting.delta_gap
             elif posting_count != 0:
-                acc_doc_id += posting[0]
+                acc_doc_id += posting.delta_gap
             
             if acc_doc_id == doc_id:
                 return True
@@ -178,7 +184,7 @@ class InvertedList():
         deltas = list()
         
         for posting in self._postings:
-            deltas.append(posting[0])
+            deltas.append(posting.delta_gap)
         
         return deltas
     
@@ -191,9 +197,9 @@ class InvertedList():
         
         for posting_count, posting in enumerate(self._postings[checkpoint_pos:]):
             if acc_doc_id == None:
-                acc_doc_id = posting[0]
+                acc_doc_id = posting.delta_gap
             elif posting_count != 0:
-                acc_doc_id += posting[0]
+                acc_doc_id += posting.delta_gap
 
             if acc_doc_id == doc_id:
                 return Posting(acc_doc_id, posting[1])
