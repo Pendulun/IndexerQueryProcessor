@@ -60,22 +60,27 @@ class Index():
         raise AttributeError("index is not writable")
 
     def add(self, token:str, entry:Posting):
-        if token not in self._index:
-            self._index[token] = InvertedList()
-        
-        self._index[token].add(entry)
+
+        self._index.setdefault(token, InvertedList()).add(entry)
     
     def has_entry(self, token:str, doc_id:int) -> bool:
-        if token not in self._index:
+        invertedList = self._get_inverted_list(token)
+
+        if invertedList == None:
             return False
-        
-        return self._index[token].has_doc(doc_id)
+        else:
+            return invertedList.has_doc(doc_id)
     
     def getDeltasOf(self, token:str):
-        if token in self._index: 
-            return self._index[token].get_deltas()
-        else:
+        invertedList = self._get_inverted_list(token)
+
+        if invertedList == None:
             return list()
+        else:
+            return invertedList.get_deltas()
+    
+    def _get_inverted_list(self, token:str):
+        return self._index.setdefault(token, None)
     
     def get_posting(self, token:str, doc_id:int) -> Posting:
         if token not in self._index:
