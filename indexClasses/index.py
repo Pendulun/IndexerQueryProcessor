@@ -56,6 +56,14 @@ class Index():
             return 0
         else:
             return inverted_list.get_posting(doc_id).frequency
+    
+    def get_num_postings_for(self, token:str) ->int:
+        inverted_list = self._get_inverted_list(token)
+
+        if inverted_list == None:
+            return 0
+        else:
+            return inverted_list.num_postings
 
 class InvertedList():
 

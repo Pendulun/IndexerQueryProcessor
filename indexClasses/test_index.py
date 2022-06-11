@@ -42,16 +42,7 @@ class TestIndex(TestCase):
         self.index.add(token, posting)
 
         self.assertEqual(self.index.get_freq_of_doc_for_token(doc_id, token), 3)
-    
-    def test_has_posting_after_checkpoint(self):
-        token = 'test1'
-        max_doc_id = InvertedList.CHECKPOINTS_EVERY + 2
-        for doc_id in range(max_doc_id):
-            frequency = doc_id
-            posting = PostingTuple(doc_id, frequency)
-            self.index.add(token, posting)
-    
-        self.assertTrue(self.index.has_entry(token, max_doc_id-1))
+        self.assertEqual(self.index.get_num_postings_for(token), 1)
     
     def test_doesnt_have_posting_without_token(self):
         self.assertFalse(self.index.has_entry('test', 1))
@@ -121,18 +112,44 @@ class TestIndex(TestCase):
 
         self.assertEqual(self.index.get_posting('test1', 7), PostingTuple(7, 7))
     
-    def test_get_posting_with_checkpoint(self):
+    def test_has_posting_after_checkpoint(self):
         token = 'test1'
+        self.index = self.add_more_than_checkpoint_to_index(self.index, token)
+    
+        self.assertTrue(self.index.has_entry(token, InvertedList.CHECKPOINTS_EVERY + 1))
+    
+    def test_has_posting_before_checkpoint(self):
+        token = 'test1'
+        self.index = self.add_more_than_checkpoint_to_index(self.index, token)
+    
+        self.assertTrue(self.index.has_entry(token, int(InvertedList.CHECKPOINTS_EVERY/2)))
+    
+    def test_get_posting_after_checkpoint(self):
+        token = 'test1'
+        self.index = self.add_more_than_checkpoint_to_index(self.index, token)
+        
+        goal_doc = InvertedList.CHECKPOINTS_EVERY-1
+        posting_returned = self.index.get_posting(token, goal_doc)
+        goal_posting = PostingTuple(goal_doc, goal_doc)
+        self.assertEqual(posting_returned, goal_posting)
+    
+    def test_get_posting_before_checkpoint(self):
+        token = 'test1'
+        self.index = self.add_more_than_checkpoint_to_index(self.index, token)
+        
+        goal_doc = int(InvertedList.CHECKPOINTS_EVERY/2)
+        posting_returned = self.index.get_posting(token, goal_doc)
+        goal_posting = PostingTuple(goal_doc, goal_doc)
+        self.assertEqual(posting_returned, goal_posting)
+    
+    def add_more_than_checkpoint_to_index(self, index:Index, token:str):
         max_doc_id = InvertedList.CHECKPOINTS_EVERY + 2
         for doc_id in range(max_doc_id):
             frequency = doc_id
             posting = PostingTuple(doc_id, frequency)
             self.index.add(token, posting)
         
-        goal_doc = max_doc_id-1
-        posting_returned = self.index.get_posting(token, goal_doc)
-        goal_posting = PostingTuple(goal_doc, goal_doc)
-        self.assertEqual(posting_returned, goal_posting)
+        return index
     
     def test_dont_get_posting(self):
         posting = PostingTuple(1,1)
