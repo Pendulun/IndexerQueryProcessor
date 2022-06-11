@@ -156,6 +156,19 @@ class TestIndex(TestCase):
         self.index.add('test1', posting)
         self.assertEqual(self.index.get_posting('test1', 2), None)
         self.assertEqual(self.index.get_posting('test2', 1), None)
+    
+    def test_add_from_distribuition(self):
+        doc_id = 7
+        distribuition = {
+            'test1': 5,
+            'test2': 3,
+            'test3': 8,
+            'test4': 9
+        }
+
+        self.index.add_from_distribuition(distribuition, doc_id)
+        for token in distribuition.keys():
+            self.assertTrue(self.index.has_entry(token, doc_id))
 
 
 if __name__ == '__main__':

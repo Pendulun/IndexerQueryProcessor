@@ -21,6 +21,12 @@ class Index():
 
         self._index.setdefault(token, InvertedList()).add(entry)
     
+    def add_from_distribuition(self, distribuition:dict, doc_id:int):
+
+        for token, frequency in distribuition.items():
+            new_posting = PostingTuple(doc_id, frequency)
+            self.add(token, new_posting)
+
     def has_entry(self, token:str, doc_id:int) -> bool:
         invertedList = self._get_inverted_list(token)
 

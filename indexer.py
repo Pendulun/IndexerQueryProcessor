@@ -20,14 +20,17 @@ def main(my_args):
     
     #Ler um arquivo warc
 
+    index = Index()
+
     for file in corpus_dir.glob('*.warc.gz.kaggle'):
 
         with open(file, 'rb') as stream:
             for record in ArchiveIterator(stream):
                 if record.rec_type == 'response':
                     texto = record.raw_stream.read().decode()
-                
-                break
+                    if texto.strip() != "" and len(texto.strip()) > 10:
+                        print(texto)
+                        break
         
         break
 
