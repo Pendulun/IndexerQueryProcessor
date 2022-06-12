@@ -1,5 +1,5 @@
 from unittest import TestCase, main
-from index import Index, PostingTuple, InvertedList
+from index import Index, PostingTuple
 
 class TestIndex(TestCase):
 
@@ -29,6 +29,8 @@ class TestIndex(TestCase):
 
         for posting_id in range(len(tokens)):
             self.assertTrue(self.index.has_entry(tokens[posting_id], doc_ids[posting_id]))
+        
+        self.assertTupleEqual(self.index.size, (3, 3))
     
     def test_add_same_doc_for_token(self):
         token = 'test1'
@@ -58,6 +60,28 @@ class TestIndex(TestCase):
         self.assertFalse(self.index.has_entry('test', 2))
     
     def test_get_posting(self):
+        self.index = self.add_a_bunch_of_postings(self.index)
+        self.assertEqual(self.index.get_posting('test1', 7), PostingTuple(7, 7))
+    
+    def test_get_entire_index(self):
+        self.index = self.add_a_bunch_of_postings(self.index)
+
+        expected_dict = {
+            'test1':{
+                0:3,
+                4:5,
+                7:7
+            },
+            'test2':{
+                4:1,
+                100:2,
+                105:3
+            }
+        }
+
+        self.assertDictEqual(self.index.get_entire_index(), expected_dict)
+    
+    def add_a_bunch_of_postings(self, index: Index) -> Index:
         tokens_postings = {
             'test1':{
                 'doc_ids': [0, 4, 7],
@@ -72,10 +96,9 @@ class TestIndex(TestCase):
         for token, posting_info in tokens_postings.items():
             for post_id in range(len(posting_info['doc_ids'])):
                 new_posting = PostingTuple(posting_info['doc_ids'][post_id], posting_info['freq'][post_id])
-                self.index.add(token, new_posting)
+                index.add(token, new_posting)
         
-
-        self.assertEqual(self.index.get_posting('test1', 7), PostingTuple(7, 7))
+        return index
     
     def test_dont_get_posting(self):
         posting = PostingTuple(1,1)
@@ -95,7 +118,8 @@ class TestIndex(TestCase):
         self.index.add_from_distribuition(distribuition, doc_id)
         for token in distribuition.keys():
             self.assertTrue(self.index.has_entry(token, doc_id))
-
+        
+        self.assertTupleEqual(self.index.size, (4, 4))
 
 if __name__ == '__main__':
     main()

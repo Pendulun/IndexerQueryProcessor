@@ -1,4 +1,5 @@
 from collections import namedtuple
+import json
 
 PostingTuple = namedtuple('PostingTuple', 'doc_id frequency')
         
@@ -16,6 +17,20 @@ class Index():
     @index.setter
     def index(self, new_index):
         raise AttributeError("index is not writable")
+    
+    @property
+    def size(self):
+        """
+        Returns a tuple of (numTokens, numTotalPostings)
+        """
+        return (len(self._index), self._get_total_num_postings())
+    
+    def _get_total_num_postings(self):
+        total_postings = 0
+        for _, inverted_list in self._index.items():
+            total_postings += inverted_list.size
+        
+        return total_postings
 
     def add(self, token:str, entry:PostingTuple):
 
@@ -50,7 +65,7 @@ class Index():
     def get_freq_of_doc_for_token(self, doc_id:int, token:str) -> int:
         inverted_list = self._get_inverted_list(token)
 
-        if inverted_list == None:
+        if inverted_list == None: 
             return 0
         else:
             return inverted_list.get_posting(doc_id).frequency
@@ -62,6 +77,13 @@ class Index():
             return 0
         else:
             return inverted_list.num_postings
+    
+    def get_entire_index(self):
+        return {token:inverted_list.get_all_postings_as_dicts() 
+                        for token, inverted_list in self._index.items()}
+    
+    def to_json(self):
+        return json.dumps(self.get_entire_index(), indent=4)
 
 class InvertedList():
 
@@ -80,6 +102,13 @@ class InvertedList():
     @postings.setter
     def postings(self, new_postings):
         raise AttributeError("postings is not writable")
+    
+    @property
+    def size(self):
+        """
+        Num of postings in this inverted list
+        """
+        return len(self._postings)
     
     @property
     def num_postings(self):
@@ -106,6 +135,12 @@ class InvertedList():
     
     def get_all_postings(self) -> list:
         return [PostingTuple(doc_id, posting['frequency']) for doc_id, posting in self._postings.items()]
+    
+    def get_all_postings_as_tuples(self) -> list:
+        return [(doc_id, posting['frequency']) for doc_id, posting in self._postings.items()]
+    
+    def get_all_postings_as_dicts(self) -> list:
+        return {doc_id:posting['frequency'] for doc_id, posting in self._postings.items()}
     
     def has_doc(self, doc_id:int) -> bool:
         return self._find(doc_id) != None
