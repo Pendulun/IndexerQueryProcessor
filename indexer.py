@@ -5,6 +5,7 @@ import pathlib
 import logging
 from warcio import ArchiveIterator
 from indexClasses.index import *
+from parserClasses.myparser import *
 
 MEGABYTE = 1024 * 1024
 def memory_limit(value):
@@ -26,10 +27,11 @@ def main(my_args):
 
     index = Index()
 
-    WARC_FILE_LIMIT = 2
-    DOC_PER_FILE_LIMIT = 2
+    WARC_FILE_LIMIT = 1
+    DOC_PER_FILE_LIMIT = 3
     
     warc_count = 0
+    total_doc_count = 0
     for file in corpus_dir.glob('*.warc.gz.kaggle'):
         doc_count = 0
         warc_count+=1
@@ -37,18 +39,30 @@ def main(my_args):
         with open(file, 'rb') as stream:
             for record in ArchiveIterator(stream):
                 if record.rec_type == 'response':
-                    texto = record.raw_stream.read().decode()
-                    if texto.strip() != "" and len(texto.strip()) > 10:
-                        doc_count +=1
-                        logging.info(f"WARC FILE: {warc_count}, DOC: {doc_count}")
-                        logging.info(f"\n{texto}")
-                        
 
+                    text = record.raw_stream.read().decode()
+                    logging.info(text[:100])
+                    is_portuguese = TextParser.is_portuguese(text)
+                    logging.info(f"Is portuguese: {is_portuguese}")
+                    if text.strip() != "" and len(text.strip()) > 10 and is_portuguese:
+                        text = TextParser.split_on_upper(text)
+                        doc_count +=1
+
+                        text_distribuition = TextParser.get_distribuition_of(text)
+
+                        index.add_from_distribuition(text_distribuition, total_doc_count)
+
+                        total_doc_count += 1
+
+                    
                 if doc_count == DOC_PER_FILE_LIMIT:
                     break
         
         if warc_count == WARC_FILE_LIMIT:
             break   
+        
+    logging.info(f"Index size: {index.size}")
+    logging.info(f"Index:\n {index.to_json()}")
 
     #Para cada documento, calcular a frequência de palavras e adicionar no index
     #Tudo isso levando em consideração a memória utilizada
