@@ -81,6 +81,13 @@ class TestIndex(TestCase):
 
         self.assertDictEqual(self.index.get_entire_index(), expected_dict)
     
+    def test_get_postings_dist(self):
+        self.index = self.add_a_bunch_of_postings(self.index)
+
+        expected_dict = {3: 2, 5: 1, 7: 1, 1: 1, 2: 1}
+
+        self.assertDictEqual(self.index.get_postings_dist(), expected_dict)
+    
     def add_a_bunch_of_postings(self, index: Index) -> Index:
         tokens_postings = {
             'test1':{

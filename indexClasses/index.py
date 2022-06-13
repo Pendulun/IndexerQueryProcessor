@@ -1,4 +1,4 @@
-from collections import namedtuple
+from collections import namedtuple, Counter
 import json
 
 PostingTuple = namedtuple('PostingTuple', 'doc_id frequency')
@@ -83,7 +83,21 @@ class Index():
                         for token, inverted_list in self._index.items()}
     
     def to_json(self):
-        return json.dumps(self.get_entire_index(), indent=4)
+        return json.dumps(self.get_entire_index(), indent=4, ensure_ascii=False)
+    
+    def get_postings_dist(self) -> Counter:
+        """
+        Returns the frequency distribuition for all tokens
+        """
+        dist = Counter()
+        for _, inverted_list in self._index.items():
+            for _, frequency in inverted_list.get_all_postings_as_tuples():
+                dist[frequency] += 1
+        
+        return dist
+    
+    def get_postings_dist_as_json(self):
+        return json.dumps(self.get_postings_dist(), indent=4, ensure_ascii=False)
 
 class InvertedList():
 
