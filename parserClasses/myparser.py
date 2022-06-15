@@ -28,8 +28,9 @@ class TextParser():
         if type(text) != str:
             raise TypeError("text should be a str")
 
-        return [word.lower() for word in word_tokenize(text.rstrip('\n').strip()) 
-                        if len(word) <= TextParser.MAX_TAM_WORD]
+        text = TextParser.split_on_upper(text)
+        text = text.rstrip('\n').strip()
+        return [word.lower() for word in word_tokenize(text) if len(word) <= TextParser.MAX_TAM_WORD]
 
     @classmethod
     def stem(cls, text_list:list) -> list:
@@ -48,7 +49,8 @@ class TextParser():
     
     @classmethod
     def is_portuguese(cls, text:str) -> bool:
-        return TextParser.language_of(text[:50]) in TextParser.ACCEPTED_LANGUAGES_DETECTED
+        #return TextParser.language_of(text[:50]) in TextParser.ACCEPTED_LANGUAGES_DETECTED
+        return True
     
     @classmethod
     def language_of(cls, text:str) -> str:

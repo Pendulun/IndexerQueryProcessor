@@ -1,5 +1,6 @@
 venv*
 log.log
+teste*
 parserClasses/__pycache__
 indexClasses/__pycache__
 __pycache__
