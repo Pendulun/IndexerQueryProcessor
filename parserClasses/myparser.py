@@ -16,9 +16,11 @@ class TextParser():
         
         tokens = [word for word in TextParser.pre_proccess(text) if word not in TextParser.COMPLETE_FILTER]
 
-        tokens = TextParser.stem(tokens) 
-        
+        for token_idx in range(len(tokens)):
+            tokens[token_idx] = TextParser.PORTUGUESE_STEMMER.stem(tokens[token_idx])
+
         token_frequency = FreqDist(tokens)
+        tokens = None
 
         return dict(token_frequency.items())
     
