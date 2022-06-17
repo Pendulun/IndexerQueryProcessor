@@ -20,14 +20,6 @@ class Indexer():
 
         assert self._index_dir_path.exists()
 
-        self._empty_text_queue_sem = Semaphore()
-        self._full_text_queue_sem = Semaphore()
-        self._text_queue = Queue()
-        self._get_from_text_queue_lock = Lock()
-        
-        self._num_workers = 0
-        self._n_queue_factor = 2
-
         self._global_doc_id_lock = Lock()
         self._global_doc_id = Value('i', 1)
     
@@ -36,96 +28,68 @@ class Indexer():
             raise TypeError('new_factor should be an int!')
 
         self._n_queue_factor = new_factor
-
-    def index_multiprocess(self, num_workers:int = 1):
-        """
-        There is always 2 proccess at minimum. num_workers set only the number of processes that tokenize and index
-        the texts. There is another one for reading the files. 
-        """
-        self._num_workers = num_workers
-        
-        reading_proccess = Process(target=self._get_from_corpus_files, args=())
-        tokenizing_proccesses = []
-
-        for worker_id in range(1, num_workers+1):
-            tokenizing_proccesses.append(Process(target=self._tokeninze_and_index_text, args=(worker_id,)))
-
-        reading_proccess.start()
-        [proc.start() for proc in tokenizing_proccesses]
-        
-        reading_proccess.join()
-        [proc.join() for proc in tokenizing_proccesses]
     
-    def _get_from_corpus_files(self):
-        MAX_DOC = 1000
-        DOCS_TO_ADD_AS_NEEDED = self._num_workers*self._n_queue_factor
-        total_docs_added = 0
-        docs_added_to_queue = 0 
+    def index_multiprocess(self, num_workers:int = 1):
+        warc_files_per_proc = self._get_warc_files_per_proc(num_workers)
 
-        for file in self._corpus_dir_path.glob('*.warc.gz.kaggle'):
+        procs = []
+        for proc_id, warc_files in warc_files_per_proc.items():
+            procs.append(Process(target=self.create_subindex, args=(warc_files, proc_id)))
+        
+        [proc.start() for proc in procs]
+
+        [proc.join() for proc in procs]
+
+    
+    def _get_warc_files_per_proc(self, num_procs:int) -> dict:
+        warc_files = list(self._corpus_dir_path.glob('*.warc.gz.kaggle'))
+
+        proc_block_size = len(warc_files)//num_procs
+
+        warc_files_per_proc = dict()
+        for proc_idx in range(num_procs):
+            first_warc_file_idx = proc_idx*proc_block_size
+            last_warc_file_idx = first_warc_file_idx + proc_block_size
+            warc_files_per_proc[proc_idx] = warc_files[first_warc_file_idx:last_warc_file_idx+1]
+        
+        #leftover docs
+        if proc_block_size * num_procs != len(warc_files):
+            left_over_warc_files = warc_files[proc_block_size * num_procs:]
+            for proc_idx, warc_file in enumerate(left_over_warc_files):
+                warc_files_per_proc[proc_idx].append(warc_file)
+        
+        return warc_files_per_proc
+    
+    def create_subindex(self, warc_files:list, proc_id:int):
+        MAX_DOCS_TO_CONSIDER_PER_WARC_FILE = 100
+        index = Index()
+
+        warc_file_count = 0
+        for file in warc_files:
+            warc_file_count += 1
+            doc_added = 0
             with open(file, 'rb') as stream:
                 for record in ArchiveIterator(stream):
-                    if docs_added_to_queue == 0:
-                        self._empty_text_queue_sem.acquire()
+                    text_from_doc = record.raw_stream.read().decode().strip()
+                    if len(text_from_doc) > Indexer.MIN_FILE_CHAR_COUNT:
+                        
+                        #Para cada documento, calcular a frequência de palavras e adicionar no index
+                        text_distribuition = TextParser.get_distribuition_of(text_from_doc)
+                        
+                        self._global_doc_id_lock.acquire()
+                        curr_doc_id = self._global_doc_id.value
+                        self._global_doc_id.value += 1
+                        self._global_doc_id_lock.release()
 
-                    text = record.raw_stream.read().decode().strip()
-                    total_docs_added += 1
-                    docs_added_to_queue += 1
-                    self._text_queue.put(text)
+                        index.add_from_distribuition(text_distribuition, curr_doc_id)
+                        #print(f"Proc {proc_id} added doc {curr_doc_id} from warc_file {warc_file_count} of {len(warc_files)}")
 
-                    if total_docs_added == MAX_DOC:
-                        if docs_added_to_queue != 0:
-                            self._full_text_queue_sem.release()
-                            docs_added_to_queue = 0
-                        break
+                        doc_added += 1
 
-                    if docs_added_to_queue == DOCS_TO_ADD_AS_NEEDED:
-                        docs_added_to_queue = 0
-                        self._full_text_queue_sem.release()
-                
-            if total_docs_added == MAX_DOC:
-                break
+                        if doc_added >= MAX_DOCS_TO_CONSIDER_PER_WARC_FILE:
+                            break
         
-        #As we use a Queue, we must wait for the queue to be empty to add
-        # self._num_workers STOP_FLAGS 
-        self._empty_text_queue_sem.acquire()
-        for _ in range(self._num_workers):
-            self._text_queue.put(Indexer.STOP_FLAG)
-        self._full_text_queue_sem.release()
-    
-    def _tokeninze_and_index_text(self, my_id:int):
-        my_index = Index()
-
-        while True:
-            
-            self._get_from_text_queue_lock.acquire()
-            if self._text_queue.empty():
-                self._empty_text_queue_sem.release()
-                self._full_text_queue_sem.acquire()
-
-            text_from_corpus = self._text_queue.get()
-            self._get_from_text_queue_lock.release()
-
-            if text_from_corpus == Indexer.STOP_FLAG:
-                break
-
-            elif len(text_from_corpus) > Indexer.MIN_FILE_CHAR_COUNT:
-
-                #Para cada documento, calcular a frequência de palavras e adicionar no index
-                text_distribuition = TextParser.get_distribuition_of(text_from_corpus)
-                
-                self._global_doc_id_lock.acquire()
-                curr_doc_id = self._global_doc_id.value
-                self._global_doc_id.value += 1
-                self._global_doc_id_lock.release()
-
-                my_index.add_from_distribuition(text_distribuition, curr_doc_id)
-                
-        print(f"PROC {my_id} OUT")
+        print(f"PROC {proc_id} OUT")
     
     def reset(self):
-        self._empty_text_queue_sem = Semaphore()
-        self._full_text_queue_sem = Semaphore()
-        self._text_queue = Queue()
-        self._get_from_text_queue_lock = Lock()
         self._global_doc_id.value = 0
