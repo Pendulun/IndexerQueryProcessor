@@ -20,9 +20,9 @@ def main(my_args):
     indexer = Indexer(my_args.corpus_path, my_args.index_path)
     #Tudo isso levando em consideração a memória utilizada
     times = {}
-    NUM_PROCS = [2]
+    NUM_PROCS = [2,3,4]
     N_FACTORS = [3]
-    NUM_RUNS = 1
+    NUM_RUNS = 5
     for n_proc in NUM_PROCS:
         for queue_factor in N_FACTORS:
             times.setdefault(n_proc, {})[queue_factor] = list()
@@ -35,7 +35,6 @@ def main(my_args):
                 total_time = end-start
                 times[n_proc][queue_factor].append(total_time)
                 logging.info(f"Total time: {total_time} segundos")
-                logging.info(f"Index size: {indexer.get_index_size()}")
                 indexer.reset()
                 # logging.info(f"Frequency Dist:\n{indexer.get_postings_dist_as_json()}")
     
