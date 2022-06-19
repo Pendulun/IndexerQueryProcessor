@@ -92,13 +92,5 @@ class TestTextParser(TestCase):
         text = ""
         self.assertEqual(TextParser.split_on_upper(text), text)
 
-    def test_is_portuguese(self):
-        text = "A sorte favorece os corajosos"
-        self.assertTrue(TextParser.is_portuguese(text))
-    
-    def test_is_not_portuguese(self):
-        text = "Tis but a scratch"
-        self.assertFalse(TextParser.is_portuguese(text))
-
 if __name__ == '__main__':
     main()

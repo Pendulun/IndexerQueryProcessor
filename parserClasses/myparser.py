@@ -14,14 +14,9 @@ class TextParser():
     @classmethod
     def get_distribuition_of(cls, text:str) -> dict:
         
-        tokens = [word for word in TextParser.pre_proccess(text) if word not in TextParser.COMPLETE_FILTER]
-
-        for token_idx in range(len(tokens)):
-            tokens[token_idx] = TextParser.PORTUGUESE_STEMMER.stem(tokens[token_idx])
-
+        tokens = [TextParser.PORTUGUESE_STEMMER.stem(word) for word in TextParser.pre_proccess(text)]
         token_frequency = FreqDist(tokens)
         tokens = None
-
         return dict(token_frequency.items())
     
     @classmethod
@@ -32,7 +27,11 @@ class TextParser():
 
         text = TextParser.split_on_upper(text)
         text = text.rstrip('\n').strip()
-        return [word.lower() for word in word_tokenize(text) if len(word) <= TextParser.MAX_TAM_WORD]
+        for word in word_tokenize(text):
+            if len(word) <= TextParser.MAX_TAM_WORD:
+                word_lower = word.lower()
+                if word_lower not in TextParser.COMPLETE_FILTER:
+                    yield word_lower
 
     @classmethod
     def stem(cls, text_list:list) -> list:
@@ -48,11 +47,6 @@ class TextParser():
             text = text.replace(letter, " "+letter)
         
         return text.replace("  ", " ").lstrip()
-    
-    @classmethod
-    def is_portuguese(cls, text:str) -> bool:
-        #return TextParser.language_of(text[:50]) in TextParser.ACCEPTED_LANGUAGES_DETECTED
-        return True
     
     @classmethod
     def language_of(cls, text:str) -> str:
