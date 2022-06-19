@@ -1,5 +1,6 @@
 from unittest import TestCase, main
 from index import Index, PostingTuple
+import pathlib
 
 class TestIndex(TestCase):
 
@@ -87,7 +88,30 @@ class TestIndex(TestCase):
         expected_dict = {3: 2, 5: 1, 7: 1, 1: 1, 2: 1}
 
         self.assertDictEqual(self.index.get_postings_dist(), expected_dict)
+
+    def test_update_index_from_list_of_tuples(self):
+        self.index = self.add_a_bunch_of_postings(self.index)
+        list_of_tuples = [
+            ('test30',[
+                (1,7),
+                (4,9)   
+            ]),
+            ('test31', [
+                (9,10),
+                (11, 12)
+            ])
+        ]
+
+        self.index.update_from_list_of_tuples(list_of_tuples)
+
+        expected_index = Index()
+        expected_index =  self.add_a_bunch_of_postings(expected_index)
+        for token, postings_list in list_of_tuples:
+            for posting in postings_list:
+                expected_index.add(token, PostingTuple(posting[0], posting[1]))
     
+        self.assertDictEqual(expected_index.get_entire_index(), self.index.get_entire_index())
+
     def add_a_bunch_of_postings(self, index: Index) -> Index:
         tokens_postings = {
             'test1':{
@@ -127,6 +151,36 @@ class TestIndex(TestCase):
             self.assertTrue(self.index.has_entry(token, doc_id))
         
         self.assertTupleEqual(self.index.size, (4, 4))
+    
+    def test_load_index(self):
+        test_dir = pathlib.Path('test_utils')
+        test_dir.mkdir(exist_ok=True)
+        assert test_dir.exists()
+        
+        original_index = Index()
+
+        list_of_tuples = [
+            ('test30',[
+                (1,7),
+                (4,9)   
+            ]),
+            ('test31', [
+                (9,10),
+                (11, 12)
+            ])
+        ]
+        
+        test_file = (test_dir/ "test_load_index.pickle") 
+        if test_file.exists():
+            test_file.unlink()
+
+        original_index.update_from_list_of_tuples(list_of_tuples)
+        original_index.save_to_pickle(test_file)
+
+        loaded_index = Index()
+        loaded_index.load_index_from(test_file)
+
+        self.assertDictEqual(original_index.get_entire_index(), loaded_index.get_entire_index())
 
 if __name__ == '__main__':
     main()

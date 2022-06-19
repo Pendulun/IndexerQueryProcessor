@@ -4,3 +4,5 @@ teste*
 parserClasses/__pycache__
 indexClasses/__pycache__
 __pycache__
+test_utils
+*.pickle

@@ -1,6 +1,7 @@
 from collections import namedtuple, Counter
 import json
 import sys
+import pickle
 
 PostingTuple = namedtuple('PostingTuple', 'doc_id frequency')
         
@@ -24,7 +25,21 @@ class Index():
         """
         Returns a tuple of (numTokens, numTotalPostings)
         """
-        return (len(self._index), self._get_total_num_postings())
+        return (self.get_num_tokens(), self._get_total_num_postings())
+    
+    def get_num_tokens(self):
+        return len(self._index)
+    
+    def clear(self):
+        self._index.clear()
+
+    def get_stats(self):
+        num_tokens = len(self._index)
+        total_postings = self._get_total_num_postings()
+        mean_postings = 0
+        if num_tokens != 0:
+            mean_postings = total_postings/num_tokens
+        return num_tokens, mean_postings
 
     def mem_size(self):
         return self._get_size(self)
@@ -65,6 +80,11 @@ class Index():
         for token, frequency in distribuition.items():
             new_posting = PostingTuple(doc_id, frequency)
             self.add(token, new_posting)
+    
+    def update_from_list_of_tuples(self, list_of_tuples:list):
+        for token, postings_list in list_of_tuples:
+            for posting in postings_list:
+                self.add(token, PostingTuple(posting[0], posting[1]))
 
     def has_entry(self, token:str, doc_id:int) -> bool:
         invertedList = self._get_inverted_list(token)
@@ -122,6 +142,46 @@ class Index():
     
     def get_postings_dist_as_json(self):
         return json.dumps(self.get_postings_dist(), indent=4, ensure_ascii=False)
+    
+    def get_index_as_tuples_gen(self):
+        for token, inverted_list in sorted(self._index.items()):
+             yield (token, inverted_list.get_all_postings_as_tuples())
+
+    def save_to_pickle(self, file:str):
+        #https://stackoverflow.com/questions/20716812/saving-and-loading-multiple-objects-in-pickle-file
+        with open(file,'ab') as index_file:
+            for token_postings_tuple in self.get_index_as_tuples_gen(): 
+                pickle.dump(token_postings_tuple, index_file)
+    
+    def save_to_pickle_and_clear(self, file:str):
+        self.save_to_pickle(file)
+        self.clear()
+    
+    def load_index_from(self, file:str):
+        with open(file,'rb') as index_file:
+            while True:
+                try:
+                    self.update_from_list_of_tuples([pickle.load(index_file)])
+                except EOFError:
+                    break
+    
+    @classmethod
+    def get_stats_from_file(cls, file:str):
+        num_tokens = 0
+        num_total_postings = 0
+        with open(file,'rb') as index_file:
+            while True:
+                try:
+                    token, postings_list = pickle.load(index_file)
+                    num_tokens += 1
+                    num_total_postings += len(postings_list)
+                except EOFError:
+                    break
+        mean_postings_list = 0
+        if num_tokens != 0:
+            mean_postings_list = num_total_postings/num_tokens
+            
+        return num_tokens, mean_postings_list
 
 class InvertedList():
 
