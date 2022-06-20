@@ -85,7 +85,6 @@ class Indexer():
         [proc.join() for proc in tokenizing_proccesses]
     
     def _get_from_corpus_files(self, my_id:int, max_mem_mb:int):
-        #self._memory_limit(max_mem_mb)
         max_mem_usage = max_mem_mb * Indexer.MEGABYTE
         resource.setrlimit(resource.RLIMIT_AS, (max_mem_usage, max_mem_usage))
 
@@ -99,7 +98,7 @@ class Indexer():
 
         try:
             warc_file_count = 0
-            MAX_WARC_FILES = 1
+            MAX_WARC_FILES = 100
             for curr_warc_file_name in self._corpus_dir_path.glob('*.warc.gz.kaggle'):
                 warc_file_count += 1
                 with open(curr_warc_file_name, 'rb') as curr_warc_file:

@@ -6,3 +6,4 @@ indexClasses/__pycache__
 __pycache__
 test_utils
 *.pickle
+merge_index.py

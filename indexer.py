@@ -3,6 +3,7 @@ from parserClasses.myparser import *
 from indexClasses.indexer import *
 from indexClasses.index import *
 from mergerClasses.index_merger import *
+from multiprocessing import cpu_count
 
 import logging
 import argparse
@@ -20,26 +21,32 @@ def main(my_args):
     """
     Your main calls should be added here
     """
-    indexer = Indexer(my_args.corpus_path, my_args.index_path)
+    final_index_dir = pathlib.Path(my_args.index_path).parent
+    sub_indexes_dir = final_index_dir / 'sub_indexes'
+    sub_indexes_dir.mkdir(parents=True, exist_ok=True)
+    indexer = Indexer(my_args.corpus_path, sub_indexes_dir)
+
     id_to_doc_file = pathlib.Path("id_to_doc") / 'id_to_doc_map.pickle'
     indexer.id_to_doc_file = id_to_doc_file
 
-    times = {}
-    NUM_PROCS = 3
+    max_num_procs = cpu_count()
+    num_procs_for_indexing = 1
+    if max_num_procs > 1:
+        num_procs_for_indexing = max_num_procs - 1
+
     max_mem_used_indexing = my_args.memory_limit * 0.9
-    logging.info(f"MAX_MEM_TO_BE_USED: {max_mem_used_indexing}")
-    logging.info(f"n_proc {NUM_PROCS}")
     
     start = timer()
-    indexer.index_multiprocess(max_mem_used_indexing, NUM_PROCS)
+    indexer.index_multiprocess(max_mem_used_indexing, num_procs_for_indexing)
     
-    #REALIZAR MERGE
-    sub_indexes_dir = pathlib.Path(my_args.index_path)
-    sub_index_files = [sub_index_file for sub_index_file in sub_indexes_dir.glob('*.pickle')]
-    final_index_path_file = sub_indexes_dir / 'final_index.pickle'
+    sub_index_files = list(sub_indexes_dir.glob('*.pickle'))
+    final_index_path_file = pathlib.Path(my_args.index_path)
     max_mem_used_index_merge = my_args.memory_limit * 0.45 * MEGABYTE
+
     index_merger = IndexMerger()
-    index_merger.merge_pickle_files_to(sub_index_files, final_index_path_file , max_mem_used_index_merge)
+    index_merger.max_files_opened_at_once = 100
+    index_merger.merge_index_file = my_args.index_path
+    index_merger.merge_pickle_files(sub_index_files, max_mem_used_index_merge)
 
     end = timer()
     total_time = end-start
@@ -52,7 +59,6 @@ def main(my_args):
     run_info['Average List Size'] = avg_inv_list_size
 
     print(json.dumps(run_info, indent=4, ensure_ascii=False))
-    #logging.info(json.dumps(run_info, indent=4, ensure_ascii=False))
 
 def configArgs(parser):
     parser.add_argument(
