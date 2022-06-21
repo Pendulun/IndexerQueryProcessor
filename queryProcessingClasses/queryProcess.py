@@ -1,7 +1,7 @@
+from parserClasses.myparser import TextParser
 from math import log
 import pathlib
 import pickle
-from parserClasses.myparser import TextParser
 
 class QueryProcessor():
     
@@ -10,7 +10,7 @@ class QueryProcessor():
 
     def __init__(self):
         self._index_file_path = None
-        self._scoring_method = None
+        self._scoring_method = 'TFIDF'
         self._number_of_documents_in_index = 960000
         self._doc_id_to_url_file_path = pathlib.Path('id_to_doc/id_to_doc_map.pickle')
     
@@ -85,16 +85,12 @@ class QueryProcessor():
         return self._query(query)
 
     def _query(self, query:str) -> list:
-        print(f"Processando query {query}")
 
         ordered_query_tokens = sorted(list(TextParser.pre_proccess(query)))
-        print(ordered_query_tokens)
 
         inverted_lists_of_interest = self._find_inverted_lists_of(ordered_query_tokens)
-        print(inverted_lists_of_interest)
 
         top_n_scored_docs = self._score_docs_for_query(inverted_lists_of_interest, ordered_query_tokens)
-        print(top_n_scored_docs)
         inverted_lists_of_interest = None
 
         return top_n_scored_docs
@@ -139,19 +135,17 @@ class QueryProcessor():
         scoring_function = self._get_scoring_function(self._scoring_method)
 
         top_n_docs = self.DAAT_score(inverted_lists_of_interest, scoring_function)
-        print(f"TOP N DOCS: {top_n_docs}")
 
         top_n_docs_converted = self.convert_ranking_doc_ids_to_urls(top_n_docs)
 
         return top_n_docs_converted
 
     def convert_ranking_doc_ids_to_urls(self, top_n_docs:list):
+        
         converted_ranking = list()
         urls_mapping = []
         with open(self._doc_id_to_url_file_path, 'rb') as doc_id_to_urls_file:
             urls_mapping = list(pickle.load(doc_id_to_urls_file))
-        
-        print(type(urls_mapping))
         
         for doc_score, doc_id in top_n_docs:
             doc_url = self._find_url_of_doc_id(doc_id, urls_mapping)
@@ -160,6 +154,7 @@ class QueryProcessor():
         return converted_ranking
     
     def _find_url_of_doc_id(self, doc_id:int, urls_mapping:list) -> str :
+
         doc_url = ""
 
         for mapping in urls_mapping:
@@ -167,7 +162,6 @@ class QueryProcessor():
 
             if mapped_doc_id == doc_id:
                 doc_url = mapped_doc_url
-                print(f"Found mapping for {doc_id}: {doc_url}")
                 break
 
         return doc_url
@@ -187,13 +181,11 @@ class QueryProcessor():
 
             self._get_curr_doc_ids_from_inv_lists(inverted_lists_pos, inverted_lists_lens, curr_inv_lists_associated_with_docs, 
                                                     inverted_lists_of_interest, curr_doc_id_in_inv_lists, inv_lists_ended)
-            
-            print(curr_doc_id_in_inv_lists)
         
             if len(inv_lists_ended) == len(inverted_lists_of_interest):
                 break
 
-            smallest_doc_id, associated_inv_lists_idx = sorted(curr_doc_id_in_inv_lists.items())
+            smallest_doc_id, associated_inv_lists_idx = sorted(curr_doc_id_in_inv_lists.items())[0]
 
             final_doc_score = self._get_score_for_doc(inverted_lists_of_interest, scoring_function, inverted_lists_pos,
                                                          associated_inv_lists_idx)
@@ -202,13 +194,13 @@ class QueryProcessor():
 
             for associated_inv_list_idx in associated_inv_lists_idx:
                 curr_inv_lists_associated_with_docs.remove(associated_inv_list_idx)
-        
-        print(f"final top from method: {top_scored_docs}")
+            
+            del curr_doc_id_in_inv_lists[smallest_doc_id]
         
         return top_scored_docs
 
     def _add_doc_to_ranking(self, top_scored_docs:list, smallest_doc_id, final_doc_score):
-        print(f"Chegou top igual a {top_scored_docs}")
+
         top_scored_docs.append((final_doc_score, smallest_doc_id))
         top_scored_docs.sort()
         if len(top_scored_docs) > QueryProcessor.TOP_N_DOCS:
@@ -217,13 +209,16 @@ class QueryProcessor():
         return top_scored_docs
 
     def _get_score_for_doc(self, inverted_lists_of_interest, scoring_function, inverted_lists_pos, associated_inv_lists_idx):
+
         doc_inv_lists = list()
         doc_frequencies = list()
         for inv_list_idx in associated_inv_lists_idx:
             curr_inv_list = inverted_lists_of_interest[inv_list_idx]
             doc_inv_lists.append(curr_inv_list)
-            curr_inv_list_pos = inverted_lists_pos[inv_list_idx]
-            doc_frequencies.append(curr_inv_list[curr_inv_list_pos][1])
+            curr_inv_list_pos = inverted_lists_pos[inv_list_idx] - 1
+            posting = curr_inv_list[curr_inv_list_pos]
+            frequency = posting[1]
+            doc_frequencies.append(frequency)
 
         inv_list_and_doc_freqs = zip(doc_inv_lists, doc_frequencies)
 
@@ -240,10 +235,11 @@ class QueryProcessor():
             if inv_list_curr_pos < inverted_lists_lens[inv_list_idx]:
                 if inv_list_idx not in curr_inv_lists_associated_with_docs:
                     curr_inv_list_doc_id = inverted_lists_of_interest[inv_list_idx][inv_list_curr_pos][0]
+                    inverted_lists_pos[inv_list_idx] += 1
                     curr_doc_id_in_inv_lists.setdefault(curr_inv_list_doc_id, []).append(inv_list_idx)
                     curr_inv_lists_associated_with_docs.add(inv_list_idx)
-                else:
-                    inv_lists_ended.add(inv_list_idx)
+            else:
+                inv_lists_ended.add(inv_list_idx)
         
     def _get_scoring_function(self, scoring_method:str):
         if self._scoring_method == 'TFIDF':
@@ -254,6 +250,5 @@ class QueryProcessor():
     def _tfidf(self, inv_list:list, doc_freq:int):
         return doc_freq*log(self._number_of_documents_in_index/len(inv_list))
 
-    def _bm25(self):
-        pass
-
+    def _bm25(self, inv_list:list, doc_freq:int):
+        return self._tfidf(inv_list, doc_freq)

@@ -1,4 +1,3 @@
-from importlib.resources import path
 from math import log
 from unittest import TestCase, main
 from queryProcessingClasses.queryProcess import QueryProcessor
@@ -100,18 +99,6 @@ class TestQueryProcessor(TestCase):
             query_list = [query for query in queries_file]
 
         rankings = self.query_processor.process_queries(query_list)
-        [print(ranking) for ranking in rankings]
-    
-    # def test_DAAT_score(self):
-    #     num_total_docs = 1000
-    #     inverted_lists = list()
-        
-    #     score_function = lambda inv_list, doc_freq: doc_freq*log(num_total_docs/len(inv_list))
-
-    #     ranking = self.query_processor.DAAT_score(inverted_lists, score_function)
-    #     print(ranking)
-
-    #     self.assertTrue(True)
 
     def test_convert_doc_id_to_url(self):
         doc_id_to_url_map = set()
