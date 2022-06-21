@@ -14,7 +14,7 @@ class TextParser():
     @classmethod
     def get_distribuition_of(cls, text:str) -> dict:
         
-        tokens = [TextParser.PORTUGUESE_STEMMER.stem(word) for word in TextParser.pre_proccess(text)]
+        tokens = [word for word in TextParser.pre_proccess(text)]
         token_frequency = FreqDist(tokens)
         tokens = None
         return dict(token_frequency.items())
@@ -31,7 +31,7 @@ class TextParser():
             if len(word) <= TextParser.MAX_TAM_WORD:
                 word_lower = word.lower()
                 if word_lower not in TextParser.COMPLETE_FILTER:
-                    yield word_lower
+                    yield TextParser.PORTUGUESE_STEMMER.stem(word_lower)
 
     @classmethod
     def stem(cls, text_list:list) -> list:
