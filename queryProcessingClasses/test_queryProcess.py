@@ -4,6 +4,7 @@ from queryProcessingClasses.queryProcess import QueryProcessor
 from parserClasses.myparser import TextParser
 import pathlib
 import pickle
+import json
 
 class TestQueryProcessor(TestCase):
     
@@ -99,6 +100,8 @@ class TestQueryProcessor(TestCase):
             query_list = [query for query in queries_file]
 
         rankings = self.query_processor.process_queries(query_list)
+
+        #NO ASSERT :/
 
     def test_convert_doc_id_to_url(self):
         doc_id_to_url_map = set()

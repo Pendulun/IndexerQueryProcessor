@@ -2,6 +2,7 @@ from parserClasses.myparser import TextParser
 from math import log
 import pathlib
 import pickle
+from concurrent.futures import ThreadPoolExecutor as Executor, as_completed
 
 class QueryProcessor():
     
@@ -75,14 +76,25 @@ class QueryProcessor():
             raise TypeError("new_doc_to_url_map should be a str or pathlib.Path")
 
     def process_queries(self, queries_list:list):
-        queries_results = []
-        for query in queries_list:
-            queries_results.append(self.process_query(query))
+        queries_results = list()
+        with Executor() as executor:
+            futures = []
+            for query in queries_list:
+                futures.append(executor.submit(self.process_query, query))
+            for future in as_completed(futures):
+               queries_results.append(future.result())
         
         return queries_results
 
-    def process_query(self, query:str) -> list:
-        return self._query(query)
+    def process_query(self, query:str) -> dict:
+        structured_result = dict()
+        structured_result['Query'] = query
+        
+        query_results = self._query(query)
+        structured_query_results = [{'URL': url, 'Score': score} for score, url in query_results]
+        structured_result['Results'] = structured_query_results
+
+        return structured_result
 
     def _query(self, query:str) -> list:
 
@@ -145,7 +157,11 @@ class QueryProcessor():
         converted_ranking = list()
         urls_mapping = []
         with open(self._doc_id_to_url_file_path, 'rb') as doc_id_to_urls_file:
-            urls_mapping = list(pickle.load(doc_id_to_urls_file))
+            while True:
+                try:
+                    urls_mapping.extend(list(pickle.load(doc_id_to_urls_file)))
+                except EOFError:
+                    break
         
         for doc_score, doc_id in top_n_docs:
             doc_url = self._find_url_of_doc_id(doc_id, urls_mapping)
@@ -155,16 +171,13 @@ class QueryProcessor():
     
     def _find_url_of_doc_id(self, doc_id:int, urls_mapping:list) -> str :
 
-        doc_url = ""
-
         for mapping in urls_mapping:
             mapped_doc_id, mapped_doc_url = mapping
 
             if mapped_doc_id == doc_id:
-                doc_url = mapped_doc_url
-                break
+                return mapped_doc_url
 
-        return doc_url
+        return ""
     
     def DAAT_score(self, inverted_lists_of_interest:list, scoring_function):
 
@@ -197,6 +210,8 @@ class QueryProcessor():
             
             del curr_doc_id_in_inv_lists[smallest_doc_id]
         
+        top_scored_docs.reverse()
+
         return top_scored_docs
 
     def _add_doc_to_ranking(self, top_scored_docs:list, smallest_doc_id, final_doc_score):
